@@ -185,3 +185,38 @@ func TestExtent(t *testing.T) {
 		}
 	}
 }
+
+func TestContains(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		set  *Set
+		elem *timespan
+		want bool
+	}{
+		{
+			name: "weeks 1 and 3 contain week1",
+			set:  weeks1And3(),
+			elem: week1,
+			want: true,
+		},
+	} {
+		if got := tt.set.Contains(tt.elem.start, tt.elem.end); got != tt.want {
+			t.Errorf("%s: set.Contains(%s) = %s, want %s", tt.name, tt.elem, got, tt.want)
+		}
+	}
+}
+
+func benchmarkNewSet(numToCreate, numMembers int, overlapping bool, b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < numToCreate; i++ {
+			set := Empty()
+			for j := 0; j < numMembers; j++ {
+				if !overlapping {
+					set.Insert(week1.start, week1.end)
+				} else {
+					set.Insert(week1.start.AddDate(0, 0, 7), week1.end.AddDate(0, 0, 7))
+				}
+			}
+		}
+	}
+}

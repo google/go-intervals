@@ -110,6 +110,20 @@ func (s *Set) Add(b *Set) {
 	}
 }
 
+// Contains reports whether an interval is entirely contained by the set.
+func (s *Set) Contains(ival Interval) bool {
+	// Loop through the intervals of x
+	next := s.iterator(ival, true)
+	for setInterval := next(); setInterval != nil; setInterval = next() {
+		left, right := ival.Bisect(setInterval)
+		if !left.IsZero() {
+			return false
+		}
+		ival = right
+	}
+	return ival.IsZero()
+}
+
 // adjoinOrAppend adds an interval to the end of intervals unless that value
 // directly adjoins the last element of intervals, in which case the last
 // element will be replaced by the adjoined interval.
@@ -127,6 +141,9 @@ func adjoinOrAppend(intervals []Interval, x Interval) []Interval {
 }
 
 func (s *Set) insert(insertion Interval) {
+	if s.Contains(insertion) {
+		return
+	}
 	// TODO(reddaly): Something like Java's ArrayList would allow both O(log(n))
 	// insertion and O(log(n)) lookup. For now, we have O(log(n)) lookup and O(n)
 	// insertion.

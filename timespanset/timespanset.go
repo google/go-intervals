@@ -90,6 +90,11 @@ func (s *Set) Empty() bool {
 	return x.IsZero()
 }
 
+// Contains reports whether a time span is entirely contained within the set.
+func (s *Set) Contains(start, end time.Time) bool {
+	return s.iset.Contains(&timespan{start, end})
+}
+
 // IntervalReceiver is a function used for iterating over a set of time
 // ranges. It takes the start and end times and returns true if the iteration
 // should continue.

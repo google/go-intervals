@@ -294,3 +294,29 @@ func TestIntersect(t *testing.T) {
 		}
 	}
 }
+
+func TestContains(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		set  *Set
+		elem *span
+		want bool
+	}{
+		{
+			name: "{[0, 5), [10, 15)} contains [0, 5)]",
+			set:  NewSet([]Interval{&span{0, 5}, &span{10, 15}}),
+			elem: &span{0, 5},
+			want: true,
+		},
+		{
+			name: "{[0, 5), [10, 15)} does not contain [0, 6)]",
+			set:  NewSet([]Interval{&span{0, 5}, &span{10, 15}}),
+			elem: &span{0, 6},
+			want: false,
+		},
+	} {
+		if got := tt.set.Contains(tt.elem); got != tt.want {
+			t.Errorf("%s: set.Contains(%s) = %s, want %s", tt.name, tt.elem, got, tt.want)
+		}
+	}
+}
