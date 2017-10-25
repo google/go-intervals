@@ -117,7 +117,7 @@ func TestIntervalsBetween(t *testing.T) {
 			name:   "weeks123 should be one continuous range",
 			set:    weeks123(),
 			bounds: &timespan{past, future},
-			want:   []*timespan{&timespan{week1.start, week3.end}},
+			want:   []*timespan{{week1.start, week3.end}},
 		},
 	} {
 		if got := betweenSlice(tt.set, tt.bounds.start, tt.bounds.end); !reflect.DeepEqual(got, tt.want) {
