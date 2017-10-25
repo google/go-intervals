@@ -201,7 +201,7 @@ func TestContains(t *testing.T) {
 		},
 	} {
 		if got := tt.set.Contains(tt.elem.start, tt.elem.end); got != tt.want {
-			t.Errorf("%s: set.Contains(%s) = %s, want %s", tt.name, tt.elem, got, tt.want)
+			t.Errorf("%s: set.Contains(%s) = %t, want %t", tt.name, tt.elem, got, tt.want)
 		}
 	}
 }
