@@ -173,8 +173,8 @@ func TestAdd(t *testing.T) {
 			NewSet([]Interval{&span{20, 40}}),
 			NewSet([]Interval{&span{60, 111}}),
 			[]*span{
-				&span{20, 40},
-				&span{60, 111},
+				{20, 40},
+				{60, 111},
 			},
 		},
 		{
@@ -182,7 +182,7 @@ func TestAdd(t *testing.T) {
 			NewSet([]Interval{&span{20, 40}}),
 			NewSet([]Interval{&span{30, 111}}),
 			[]*span{
-				&span{20, 111},
+				{20, 111},
 			},
 		},
 	} {
@@ -204,14 +204,14 @@ func TestSub(t *testing.T) {
 			NewSet([]Interval{&span{20, 40}}),
 			NewSet([]Interval{&span{30, 111}}),
 			[]*span{
-				&span{20, 30},
+				{20, 30},
 			},
 		},
 		{
 			"[0, 2) [4, 6) [8, 10) - [1, 2) [5, 6) [9, 10)   = [0, 1) [4, 5) [8, 9)",
 			NewSet([]Interval{&span{0, 2}, &span{4, 6}, &span{8, 10}}),
 			NewSet([]Interval{&span{1, 2}, &span{5, 6}, &span{9, 10}}),
-			[]*span{&span{0, 1}, &span{4, 5}, &span{8, 9}},
+			[]*span{{0, 1}, {4, 5}, {8, 9}},
 		},
 		{
 			"[0...3)[10...13)...[90...93) - all odd numbers",
@@ -255,13 +255,13 @@ func TestIntersect(t *testing.T) {
 			"[20, 40) intersect [30,111)",
 			NewSet([]Interval{&span{20, 40}}),
 			NewSet([]Interval{&span{30, 111}}),
-			[]*span{&span{30, 40}},
+			[]*span{{30, 40}},
 		},
 		{
 			"[0, 2) [4, 6) [8, 10) intersect [1, 2) [5, 6) [9, 10)   = [1, 3) [5, 6) [9, 10)",
 			NewSet([]Interval{&span{0, 2}, &span{4, 6}, &span{8, 10}}),
 			NewSet([]Interval{&span{1, 2}, &span{5, 6}, &span{9, 10}}),
-			[]*span{&span{1, 2}, &span{5, 6}, &span{9, 10}},
+			[]*span{{1, 2}, {5, 6}, {9, 10}},
 		},
 		{
 			"[0...7)[10...17)...[90...97) intersect (all odd numbers + {4, 14, ... 94})",
@@ -316,7 +316,7 @@ func TestContains(t *testing.T) {
 		},
 	} {
 		if got := tt.set.Contains(tt.elem); got != tt.want {
-			t.Errorf("%s: set.Contains(%s) = %s, want %s", tt.name, tt.elem, got, tt.want)
+			t.Errorf("%s: set.Contains(%s) = %t, want %t", tt.name, tt.elem, got, tt.want)
 		}
 	}
 }
