@@ -253,42 +253,51 @@ func (s *Set) Sub(b *Set) {
 	s.intervals = newIntervals
 }
 
-// Intersect destructively modifies the set by intersecting it with b.
-func (s *Set) Intersect(b *Set) {
-	var newIntervals []Interval
-	push := func(x Interval) {
-		newIntervals = adjoinOrAppend(newIntervals, x)
-	}
-	nextX := s.iterator(b.Extent(), true)
-	nextY := b.iterator(s.Extent(), true)
+// intersectionIterator returns a function that yields intervals that are
+// members of the intersection of s and b, in increasing order.
+func (s *Set) intersectionIterator(b *Set) (iter func() Interval, cancel func()) {
+	return intervalMapperToIterator(func(f IntervalReceiver) {
+		nextX := s.iterator(b.Extent(), true)
+		nextY := b.iterator(s.Extent(), true)
 
-	x := nextX()
-	y := nextY()
-	// Loop through corresponding intervals of S and B.
-	// If y == nil, all of the remaining intervals in S are to the right of B.
-	// If x == nil, all of the remaining intervals in B are to the right of S.
-	for x != nil && y != nil {
-		if x.Before(y) {
-			x = nextX()
-			continue
-		}
-		if y.Before(x) {
-			y = nextY()
-			continue
-		}
-		xyIntersect := x.Intersect(y)
-		if !xyIntersect.IsZero() {
-			push(xyIntersect)
-			_, right := x.Bisect(y)
-			if !right.IsZero() {
-				x = right
-			} else {
+		x := nextX()
+		y := nextY()
+		// Loop through corresponding intervals of S and B.
+		// If y == nil, all of the remaining intervals in S are to the right of B.
+		// If x == nil, all of the remaining intervals in B are to the right of S.
+		for x != nil && y != nil {
+			if x.Before(y) {
 				x = nextX()
+				continue
+			}
+			if y.Before(x) {
+				y = nextY()
+				continue
+			}
+			xyIntersect := x.Intersect(y)
+			if !xyIntersect.IsZero() {
+				if !f(xyIntersect) {
+					return
+				}
+				_, right := x.Bisect(y)
+				if !right.IsZero() {
+					x = right
+				} else {
+					x = nextX()
+				}
 			}
 		}
-	}
+	})
+}
 
-	// Setting s.intervals is the only side effect in this function.
+// Intersect destructively modifies the set by intersectin it with b.
+func (s *Set) Intersect(b *Set) {
+	iter, cancel := s.intersectionIterator(b)
+	defer cancel()
+	var newIntervals []Interval
+	for x := iter(); x != nil; x = iter() {
+		newIntervals = append(newIntervals, x)
+	}
 	s.intervals = newIntervals
 }
 
@@ -374,4 +383,69 @@ func (s *Set) Intervals(f IntervalReceiver) {
 // AllIntervals returns an ordered slice of all the intervals in the set.
 func (s *Set) AllIntervals() []Interval {
 	return append(make([]Interval, 0, len(s.intervals)), s.intervals...)
+}
+
+// mapFn reports true if an iteration should continue. It is called on values of
+// a collection.
+type mapFn func(interface{}) bool
+
+// mapFn calls mapFn for each member of a collection.
+type mapperFn func(mapFn)
+
+// iteratorFn returns the next item in an iteration or the zero value. The
+// second return value indicates whether the first return value is a member of
+// the collection.
+type iteratorFn func() (interface{}, bool)
+
+// generatorFn returns an iterator.
+type generatorFn func() iteratorFn
+
+// cancelFn should be called to clean up the goroutine that would otherwise leak.
+type cancelFn func()
+
+// mapperToIterator returns an iteratorFn version of a mappingFn. The second
+// return value must be called at the end of iteration, or the underlying
+// goroutine will leak.
+func mapperToIterator(m mapperFn) (iteratorFn, cancelFn) {
+	generatedValues := make(chan interface{}, 1)
+	stopCh := make(chan interface{}, 1)
+	go func() {
+		m(func(obj interface{}) bool {
+			select {
+			case <-stopCh:
+				return false
+			case generatedValues <- obj:
+				return true
+			}
+		})
+		close(generatedValues)
+	}()
+	iter := func() (interface{}, bool) {
+		value, ok := <-generatedValues
+		return value, ok
+	}
+	return iter, func() {
+		stopCh <- nil
+	}
+}
+
+func intervalMapperToIterator(mapper func(IntervalReceiver)) (iter func() Interval, cancel func()) {
+	genericMapper := func(m mapFn) {
+		mapper(func(ival Interval) bool {
+			return m(ival)
+		})
+	}
+
+	genericIter, cancel := mapperToIterator(genericMapper)
+	return func() Interval {
+		genericVal, iterationEnded := genericIter()
+		if !iterationEnded {
+			return nil
+		}
+		ival, ok := genericVal.(Interval)
+		if !ok {
+			panic("unexpected value type, internal error")
+		}
+		return ival
+	}, cancel
 }
