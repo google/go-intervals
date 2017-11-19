@@ -264,6 +264,20 @@ func TestIntersect(t *testing.T) {
 			[]*span{{1, 2}, {5, 6}, {9, 10}},
 		},
 		{
+			"[0, 2) [5, 7) intersect [5, 7)   = [1, 2) [5, 6)",
+			// [01...56...]
+			// [.12345....]
+			NewSet([]Interval{&span{0, 2}, &span{5, 7}}),
+			NewSet([]Interval{&span{1, 6}}),
+			[]*span{{1, 2}, {5, 6}},
+		},
+		{
+			"[0, 2) [5, 7) intersect [5, 7)   = [1, 2) [5, 6)",
+			NewSet([]Interval{&span{1, 6}}),
+			NewSet([]Interval{&span{0, 2}, &span{5, 7}}),
+			[]*span{{1, 2}, {5, 6}},
+		},
+		{
 			"[0...7)[10...17)...[90...97) intersect (all odd numbers + {4, 14, ... 94})",
 			func() *Set {
 				spans := []Interval{}
