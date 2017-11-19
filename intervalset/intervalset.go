@@ -253,7 +253,7 @@ func (s *Set) Sub(b *Set) {
 	s.intervals = newIntervals
 }
 
-// Intersect destructively modifies the set by intersectin it with b.
+// Intersect destructively modifies the set by intersecting it with b.
 func (s *Set) Intersect(b *Set) {
 	var newIntervals []Interval
 	push := func(x Interval) {
@@ -264,13 +264,10 @@ func (s *Set) Intersect(b *Set) {
 
 	x := nextX()
 	y := nextY()
-	for x != nil {
-		// TODO(reddaly): Remove debug: log.Infof("Intersect at \n  x = %s\n  y = %s", x, y)
-		// If y == nil, all of the remaining intervals in A are to the right of B,
-		// so just yield them.
-		if y == nil {
-			break
-		}
+	// Loop through corresponding intervals of S and B.
+	// If y == nil, all of the remaining intervals in S are to the right of B.
+	// If x == nil, all of the remaining intervals in B are to the right of S.
+	for x != nil && y != nil {
 		if x.Before(y) {
 			x = nextX()
 			continue
@@ -284,7 +281,6 @@ func (s *Set) Intersect(b *Set) {
 			push(xyIntersect)
 			_, right := x.Bisect(y)
 			x = right
-			y = nextY()
 		}
 	}
 

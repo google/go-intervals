@@ -220,3 +220,158 @@ func benchmarkNewSet(numToCreate, numMembers int, overlapping bool, b *testing.B
 		}
 	}
 }
+
+func TestIntersectCalendar(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		set    *Set
+		bounds *timespan
+		want   []*timespan
+	}{
+		{
+			name: "Intersect: middays August 7-11, 2017",
+			set: func() *Set {
+				weekdays, _ := weekdaysWeekends(2016, 2018)
+				weekdays.Intersect(middays(2016, 2018))
+				return weekdays
+			}(),
+			bounds: &timespan{
+				time.Date(2017, time.August, 6, 0, 0, 0, 0, tz()),
+				time.Date(2017, time.August, 13, 0, 0, 0, 0, tz()),
+			},
+			want: []*timespan{
+				{
+					time.Date(2017, time.August, 7, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 7, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 8, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 8, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 9, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 9, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 10, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 10, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 11, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 11, 13, 0, 0, 0, tz()),
+				},
+			},
+		},
+		{
+			name: "Sub: middays August 7-9, 2017",
+			set: func() *Set {
+				weekdays, _ := weekdaysWeekends(2016, 2018)
+				weekdays.Sub(middays(2016, 2018))
+				return weekdays
+			}(),
+			bounds: &timespan{
+				time.Date(2017, time.August, 6, 0, 0, 0, 0, tz()),
+				time.Date(2017, time.August, 9, 0, 0, 0, 0, tz()),
+			},
+			want: []*timespan{
+				{
+					time.Date(2017, time.August, 7, 0, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 7, 11, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 7, 13, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 8, 11, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 8, 13, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 9, 0, 0, 0, 0, tz()),
+				},
+			},
+		},
+		{
+			name: "Intersect: middays August 7-11, 2017",
+			set: func() *Set {
+				x := middays(2017, 2017)
+				weekdays, _ := weekdaysWeekends(2016, 2018)
+				x.Intersect(weekdays)
+				return x
+			}(),
+			bounds: &timespan{
+				time.Date(2017, time.August, 6, 0, 0, 0, 0, tz()),
+				time.Date(2017, time.August, 13, 0, 0, 0, 0, tz()),
+			},
+			want: []*timespan{
+				{
+					time.Date(2017, time.August, 7, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 7, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 8, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 8, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 9, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 9, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 10, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 10, 13, 0, 0, 0, tz()),
+				},
+				{
+					time.Date(2017, time.August, 11, 11, 0, 0, 0, tz()),
+					time.Date(2017, time.August, 11, 13, 0, 0, 0, tz()),
+				},
+			},
+		},
+	} {
+		if got := betweenSlice(tt.set, tt.bounds.start, tt.bounds.end); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: time ranges between %s = %s, want %s", tt.name, tt.bounds, got, tt.want)
+		}
+	}
+}
+
+func TestCopyUsingStringEquals(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		set  *Set
+	}{
+		{
+			name: "3 years worth of weekdays 11am-1pm",
+			set: func() *Set {
+				weekdays, _ := weekdaysWeekends(2016, 2018)
+				weekdays.Intersect(middays(2016, 2018))
+				return weekdays
+			}(),
+		},
+	} {
+		if got, want := tt.set.Copy().String(), tt.set.String(); got != want {
+			t.Errorf("%s: copy = %s != %s", tt.name, got, want)
+		}
+	}
+}
+
+func weekdaysWeekends(yearStart, yearEnd int) (weekdays, weekends *Set) {
+	weekdays, weekends = Empty(), Empty()
+	jan1 := time.Date(yearStart, time.January, 1, 0, 0, 0, 0, tz())
+	for t := jan1; t.Year() <= yearEnd; t = t.AddDate(0, 0, 1) {
+		nextDayStart := t.AddDate(0, 0, 1)
+		switch t.Weekday() {
+		case time.Saturday, time.Sunday:
+			weekends.Insert(t, nextDayStart)
+		default:
+			weekdays.Insert(t, nextDayStart)
+		}
+	}
+	return
+}
+
+func middays(yearStart, yearEnd int) *Set {
+	middays := Empty()
+	jan1 := time.Date(yearStart, time.January, 1, 0, 0, 0, 0, tz())
+	for t := jan1; t.Year() <= yearEnd; t = t.AddDate(0, 0, 1) {
+		middays.Insert(
+			time.Date(t.Year(), t.Month(), t.Day(), 11, 0, 0, 0, tz()),
+			time.Date(t.Year(), t.Month(), t.Day(), 13, 0, 0, 0, tz()))
+	}
+	return middays
+}
