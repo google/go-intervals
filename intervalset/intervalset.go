@@ -280,7 +280,11 @@ func (s *Set) Intersect(b *Set) {
 		if !xyIntersect.IsZero() {
 			push(xyIntersect)
 			_, right := x.Bisect(y)
-			x = right
+			if !right.IsZero() {
+				x = right
+			} else {
+				x = nextX()
+			}
 		}
 	}
 
