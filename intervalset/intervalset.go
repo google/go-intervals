@@ -30,7 +30,8 @@ import (
 // point.
 //
 // All methods in the interface are non-destructive: Calls to the methods should
-// not modify the interval.
+// not modify the interval. Furthermore, the implementation assumes an interval
+// will not be mutated by user code, either.
 type Interval interface {
 	// Intersect returns the intersection of an interval with another
 	// interval. The function may panic if the other interval is incompatible.
@@ -61,6 +62,21 @@ type Interval interface {
 type Set struct {
 	//non-overlapping intervals
 	intervals []Interval
+}
+
+// SetInput is an interface implemented by Set and ImmutableSet. It is used when
+// one of these types type must take a set as an argument.
+type SetInput interface {
+	// Extent returns the Interval defined by the minimum and maximum values of
+	// the set.
+	Extent() Interval
+
+	// IntervalsBetween iterates over the intervals within extents set and calls f
+	// with each. If f returns false, iteration ceases.
+	//
+	// Any interval within the set that overlaps partially with extents is truncated
+	// before being passed to f.
+	IntervalsBetween(extents Interval, f IntervalReceiver)
 }
 
 // NewSet returns a new set given a sorted slice of intervals. This function
@@ -103,11 +119,12 @@ func (s *Set) Extent() Interval {
 }
 
 // Add adds all the elements of another set to this set.
-func (s *Set) Add(b *Set) {
+func (s *Set) Add(b SetInput) {
 	// Loop through the intervals of x
-	for _, x := range b.intervals {
+	b.IntervalsBetween(b.Extent(), func(x Interval) bool {
 		s.insert(x)
-	}
+		return true
+	})
 }
 
 // Contains reports whether an interval is entirely contained by the set.
@@ -184,13 +201,14 @@ func (s *Set) insert(insertion Interval) {
 }
 
 // Sub destructively modifies the set by subtracting b.
-func (s *Set) Sub(b *Set) {
+func (s *Set) Sub(b SetInput) {
 	var newIntervals []Interval
 	push := func(x Interval) {
 		newIntervals = adjoinOrAppend(newIntervals, x)
 	}
 	nextX := s.iterator(s.Extent(), true)
-	nextY := b.iterator(s.Extent(), true)
+	nextY, cancel := setIntervalIterator(b, s.Extent())
+	defer cancel()
 
 	x := nextX()
 	y := nextY()
@@ -255,10 +273,11 @@ func (s *Set) Sub(b *Set) {
 
 // intersectionIterator returns a function that yields intervals that are
 // members of the intersection of s and b, in increasing order.
-func (s *Set) intersectionIterator(b *Set) (iter func() Interval, cancel func()) {
+func (s *Set) intersectionIterator(b SetInput) (iter func() Interval, cancel func()) {
 	return intervalMapperToIterator(func(f IntervalReceiver) {
 		nextX := s.iterator(b.Extent(), true)
-		nextY := b.iterator(s.Extent(), true)
+		nextY, cancel := setIntervalIterator(b, s.Extent())
+		defer cancel()
 
 		x := nextX()
 		y := nextY()
@@ -291,7 +310,7 @@ func (s *Set) intersectionIterator(b *Set) (iter func() Interval, cancel func())
 }
 
 // Intersect destructively modifies the set by intersectin it with b.
-func (s *Set) Intersect(b *Set) {
+func (s *Set) Intersect(b SetInput) {
 	iter, cancel := s.intersectionIterator(b)
 	defer cancel()
 	var newIntervals []Interval
@@ -385,6 +404,11 @@ func (s *Set) AllIntervals() []Interval {
 	return append(make([]Interval, 0, len(s.intervals)), s.intervals...)
 }
 
+// ImmutableSet returns an immutable copy of this set.
+func (s *Set) ImmutableSet() *ImmutableSet {
+	return NewImmutableSet(s.AllIntervals())
+}
+
 // mapFn reports true if an iteration should continue. It is called on values of
 // a collection.
 type mapFn func(interface{}) bool
@@ -448,4 +472,10 @@ func intervalMapperToIterator(mapper func(IntervalReceiver)) (iter func() Interv
 		}
 		return ival
 	}, cancel
+}
+
+func setIntervalIterator(s SetInput, extent Interval) (iter func() Interval, cancel func()) {
+	return intervalMapperToIterator(func(f IntervalReceiver) {
+		s.IntervalsBetween(extent, f)
+	})
 }

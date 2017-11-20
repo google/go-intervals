@@ -136,7 +136,7 @@ func TestExtent(t *testing.T) {
 	}
 }
 
-func allIntervals(s *Set) []*span {
+func allIntervals(s SetInput) []*span {
 	result := []*span{}
 	s.IntervalsBetween(s.Extent(), func(x Interval) bool {
 		result = append(result, cast(x))
@@ -165,7 +165,8 @@ func TestAdd(t *testing.T) {
 
 	for _, tt := range []struct {
 		name string
-		a, b *Set
+		a    *Set
+		b    SetInput
 		want []*span
 	}{
 		{
@@ -180,15 +181,19 @@ func TestAdd(t *testing.T) {
 		{
 			"[20, 40) + [30,111) = [20, 111)",
 			NewSet([]Interval{&span{20, 40}}),
-			NewSet([]Interval{&span{30, 111}}),
+			NewImmutableSet([]Interval{&span{30, 111}}),
 			[]*span{
 				{20, 111},
 			},
 		},
 	} {
+		u := NewImmutableSet(tt.a.AllIntervals()).Union(tt.b)
 		tt.a.Add(tt.b)
 		if got := allIntervals(tt.a); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
+		}
+		if got := allIntervals(u); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: [ImmutableSet] got %v, want %v", tt.name, got, tt.want)
 		}
 	}
 }
@@ -196,7 +201,8 @@ func TestAdd(t *testing.T) {
 func TestSub(t *testing.T) {
 	for _, tt := range []struct {
 		name string
-		a, b *Set
+		a    *Set
+		b    SetInput
 		want []*span
 	}{
 		{
@@ -238,6 +244,9 @@ func TestSub(t *testing.T) {
 			}(),
 		},
 	} {
+		if got := allIntervals(tt.a.ImmutableSet().Sub(tt.b)); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: [ImmutableSet] got %v, want %v", tt.name, got, tt.want)
+		}
 		tt.a.Sub(tt.b)
 		if got := allIntervals(tt.a); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
@@ -248,7 +257,8 @@ func TestSub(t *testing.T) {
 func TestIntersect(t *testing.T) {
 	for _, tt := range []struct {
 		name string
-		a, b *Set
+		a    *Set
+		b    SetInput
 		want []*span
 	}{
 		{
@@ -302,6 +312,9 @@ func TestIntersect(t *testing.T) {
 			}(),
 		},
 	} {
+		if got := allIntervals(tt.a.ImmutableSet().Intersect(tt.b)); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: [ImmutableSet] got\n  %v, want\n  %v", tt.name, got, tt.want)
+		}
 		tt.a.Intersect(tt.b)
 		if got := allIntervals(tt.a); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: got\n  %v, want\n  %v", tt.name, got, tt.want)
@@ -329,6 +342,9 @@ func TestContains(t *testing.T) {
 			want: false,
 		},
 	} {
+		if got := tt.set.ImmutableSet().Contains(tt.elem); got != tt.want {
+			t.Errorf("%s: [ImmutableSet] set.Contains(%s) = %t, want %t", tt.name, tt.elem, got, tt.want)
+		}
 		if got := tt.set.Contains(tt.elem); got != tt.want {
 			t.Errorf("%s: set.Contains(%s) = %t, want %t", tt.name, tt.elem, got, tt.want)
 		}
