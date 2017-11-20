@@ -14,7 +14,8 @@
 
 package intervalset
 
-// Set is a set of interval objects used for
+// ImmutableSet is a set of interval objects. It provides various set theory
+// operations.
 type ImmutableSet struct {
 	set *Set
 }
@@ -41,21 +42,21 @@ func (s *ImmutableSet) Contains(ival Interval) bool {
 	return s.set.Contains(ival)
 }
 
-// Add adds all the elements of another set to this set.
+// Union returns a set with the contents of this set and another set.
 func (s *ImmutableSet) Union(b SetInput) *ImmutableSet {
 	union := s.set.Copy()
 	union.Add(b)
 	return &ImmutableSet{union}
 }
 
-// Sub destructively modifies the set by subtracting b.
+// Sub returns a set without the intervals of another set.
 func (s *ImmutableSet) Sub(b SetInput) *ImmutableSet {
 	x := s.set.Copy()
 	x.Sub(b)
 	return &ImmutableSet{x}
 }
 
-// Intersect destructively modifies the set by intersecting it with b.
+// Intersect returns the intersection of two sets.
 func (s *ImmutableSet) Intersect(b SetInput) *ImmutableSet {
 	x := s.set.Copy()
 	x.Intersect(b)
