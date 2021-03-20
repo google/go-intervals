@@ -337,6 +337,9 @@ func (s *Set) searchHigh(x Interval) int {
 
 // iterator returns a function that yields elements of the set in order.
 func (s *Set) iterator(extents Interval, forward bool) func() Interval {
+	if extents == nil {
+		return func() Interval { return nil }
+	}
 	low, high := s.searchLow(extents), s.searchHigh(extents)
 
 	i, stride := low, 1
@@ -365,6 +368,10 @@ type IntervalReceiver func(Interval) bool
 // Any interval within the set that overlaps partially with extents is truncated
 // before being passed to f.
 func (s *Set) IntervalsBetween(extents Interval, f IntervalReceiver) {
+	if extents == nil {
+		return
+	}
+
 	// Begin = first index in s.intervals that is not before extents.
 	begin := sort.Search(len(s.intervals), func(i int) bool {
 		return !s.intervals[i].Before(extents)
