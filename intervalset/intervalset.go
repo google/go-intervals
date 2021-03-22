@@ -62,6 +62,8 @@ type Interval interface {
 type Set struct {
 	//non-overlapping intervals
 	intervals []Interval
+	// factory is needed when the extents of the empty set are needed.
+	factory intervalFactory
 }
 
 // SetInput is an interface implemented by Set and ImmutableSet. It is used when
@@ -82,22 +84,46 @@ type SetInput interface {
 // NewSet returns a new set given a sorted slice of intervals. This function
 // panics if the intervals are not sorted.
 func NewSet(intervals []Interval) *Set {
+	return NewSetV1(intervals, oldBehaviorFactory.makeZero)
+}
+
+// NewSetV1 returns a new set given a sorted slice of intervals. This function
+// panics if the intervals are not sorted.
+//
+// NewSetV1 will be renamed and will replace NewSet in the v1 release.
+func NewSetV1(intervals []Interval, makeZero func() Interval) *Set {
+	if err := CheckSorted(intervals); err != nil {
+		panic(err)
+	}
+	return &Set{intervals, makeIntervalFactor(makeZero)}
+}
+
+// CheckSorted checks that interval[i+1] is not before interval[i] for all
+// relevant elements of the input slice. Nil is returned when len(intervals) is
+// 0 or 1.
+func CheckSorted(intervals []Interval) error {
 	for i := 0; i < len(intervals)-1; i++ {
 		if !intervals[i].Before(intervals[i+1]) {
-			panic(fmt.Errorf("!intervals[%d].Before(intervals[%d]) for %s, %s", i, i+1, intervals[i], intervals[i+1]))
+			return fmt.Errorf("!intervals[%d].Before(intervals[%d]) for %s, %s", i, i+1, intervals[i], intervals[i+1])
 		}
 	}
-	return &Set{intervals}
+	return nil
 }
 
 // Empty returns a new, empty set of intervals.
 func Empty() *Set {
-	return &Set{}
+	return EmptyV1(oldBehaviorFactory.makeZero)
+}
+
+// EmptyV1 returns a new, empty set of intervals using the semantics of the V1
+// API, which will require a factory method for construction of an empty interval.
+func EmptyV1(makeZero func() Interval) *Set {
+	return &Set{nil, makeIntervalFactor(makeZero)}
 }
 
 // Copy returns a copy of a set that may be mutated without affecting the original.
 func (s *Set) Copy() *Set {
-	return &Set{append([]Interval(nil), s.intervals...)}
+	return &Set{append([]Interval(nil), s.intervals...), s.factory}
 }
 
 // String returns a human-friendly representation of the set.
@@ -113,15 +139,21 @@ func (s *Set) String() string {
 // set.
 func (s *Set) Extent() Interval {
 	if len(s.intervals) == 0 {
-		return nil
+		return s.factory.makeZero()
 	}
 	return s.intervals[0].Encompass(s.intervals[len(s.intervals)-1])
 }
 
 // Add adds all the elements of another set to this set.
 func (s *Set) Add(b SetInput) {
+	// Deal with nil extent. See https://github.com/google/go-intervals/issues/6.
+	bExtent := b.Extent()
+	if bExtent == nil {
+		return // no changes needed
+	}
+
 	// Loop through the intervals of x
-	b.IntervalsBetween(b.Extent(), func(x Interval) bool {
+	b.IntervalsBetween(bExtent, func(x Interval) bool {
 		s.insert(x)
 		return true
 	})
@@ -202,12 +234,18 @@ func (s *Set) insert(insertion Interval) {
 
 // Sub destructively modifies the set by subtracting b.
 func (s *Set) Sub(b SetInput) {
+	extent := s.Extent()
+	// Deal with nil extent. See https://github.com/google/go-intervals/issues/6.
+	if extent == nil {
+		// Set is already empty, no changes necessary.
+		return
+	}
 	var newIntervals []Interval
 	push := func(x Interval) {
 		newIntervals = adjoinOrAppend(newIntervals, x)
 	}
-	nextX := s.iterator(s.Extent(), true)
-	nextY, cancel := setIntervalIterator(b, s.Extent())
+	nextX := s.iterator(extent, true)
+	nextY, cancel := setIntervalIterator(b, extent)
 	defer cancel()
 
 	x := nextX()
@@ -275,8 +313,16 @@ func (s *Set) Sub(b SetInput) {
 // members of the intersection of s and b, in increasing order.
 func (s *Set) intersectionIterator(b SetInput) (iter func() Interval, cancel func()) {
 	return intervalMapperToIterator(func(f IntervalReceiver) {
-		nextX := s.iterator(b.Extent(), true)
-		nextY, cancel := setIntervalIterator(b, s.Extent())
+		sExtent, bExtent := s.Extent(), b.Extent()
+		// Deal with nil extent. See https://github.com/google/go-intervals/issues/6.
+		if sExtent == nil || bExtent == nil {
+			// IF either set is already empty, the intersection is empty. This
+			// voids a panic below where a valid Interval is needed for each
+			// extent.
+			return
+		}
+		nextX := s.iterator(bExtent, true)
+		nextY, cancel := setIntervalIterator(b, sExtent)
 		defer cancel()
 
 		x := nextX()
@@ -336,6 +382,8 @@ func (s *Set) searchHigh(x Interval) int {
 }
 
 // iterator returns a function that yields elements of the set in order.
+//
+// The function returned will return nil when finished iterating.
 func (s *Set) iterator(extents Interval, forward bool) func() Interval {
 	low, high := s.searchLow(extents), s.searchHigh(extents)
 
@@ -478,4 +526,20 @@ func setIntervalIterator(s SetInput, extent Interval) (iter func() Interval, can
 	return intervalMapperToIterator(func(f IntervalReceiver) {
 		s.IntervalsBetween(extent, f)
 	})
+}
+
+// oldBehaviorFactory returns a nil interval. This was used before
+// construction of a Set/ImmutableSet required passing in a factory method for
+// creating a zero interval object.
+var oldBehaviorFactory = makeIntervalFactor(func() Interval { return nil })
+
+// intervalFactory is used to construct a zero-value interval. The zero value
+// interval may be different for different types of intervals, so a factory is
+// sometimes needed to write generic algorithms about intervals.
+type intervalFactory struct {
+	makeZero func() Interval
+}
+
+func makeIntervalFactor(makeZero func() Interval) intervalFactory {
+	return intervalFactory{makeZero}
 }
