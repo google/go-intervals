@@ -207,6 +207,38 @@ func TestExtent(t *testing.T) {
 			}(),
 			want: week2,
 		},
+		{
+			name: "weeks123 - empty set = weeks123",
+			set: func() *Set {
+				w := weeks123()
+				w.Sub(Empty())
+				return w
+			}(),
+			want: &timespan{week1.start, week3.end},
+		},
+		{
+			name: "weeks123 + empty set = weeks123",
+			set: func() *Set {
+				w := weeks123()
+				w.Add(Empty())
+				return w
+			}(),
+			want: &timespan{week1.start, week3.end},
+		},
+		{
+			name: "empty set + weeks123 = weeks123",
+			set: func() *Set {
+				w := Empty()
+				w.Add(weeks123())
+				return w
+			}(),
+			want: &timespan{week1.start, week3.end},
+		},
+		{
+			name: "empty set extent is two zero times",
+			set:  Empty(),
+			want: &timespan{time.Time{}, time.Time{}},
+		},
 	} {
 		gotStart, gotEnd := tt.set.Extent()
 
