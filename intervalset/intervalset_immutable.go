@@ -23,7 +23,13 @@ type ImmutableSet struct {
 // NewImmutableSet returns a new set given a sorted slice of intervals. This
 // function panics if the intervals are not sorted.
 func NewImmutableSet(intervals []Interval) *ImmutableSet {
-	return &ImmutableSet{NewSet(intervals)}
+	return NewImmutableSetV1(intervals, oldBehaviorFactory.makeZero)
+}
+
+// NewImmutableSetV1 returns a new set given a sorted slice of intervals. This
+// function panics if the intervals are not sorted.
+func NewImmutableSetV1(intervals []Interval, makeZero func() Interval) *ImmutableSet {
+	return &ImmutableSet{NewSetV1(intervals, makeZero)}
 }
 
 // String returns a human-friendly representation of the set.
