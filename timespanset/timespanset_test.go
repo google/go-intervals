@@ -134,6 +134,36 @@ func TestIntersect(t *testing.T) {
 		want   []*timespan
 	}{
 		{
+			name: "subtract empty from empty",
+			set: func() *Set {
+				w := Empty()
+				w.Sub(Empty())
+				return w
+			}(),
+			bounds: &timespan{past, future},
+			want:   []*timespan{},
+		},
+		{
+			name: "subtract weeks 1 and 3 from empty",
+			set: func() *Set {
+				w := Empty()
+				w.Sub(weeks1And3())
+				return w
+			}(),
+			bounds: &timespan{past, future},
+			want:   []*timespan{},
+		},
+		{
+			name: "subtract empty from weeks 1 and 3",
+			set: func() *Set {
+				w := weeks1And3()
+				w.Sub(Empty())
+				return w
+			}(),
+			bounds: &timespan{past, future},
+			want:   []*timespan{week1, week3},
+		},
+		{
 			name: "subtract weeks 1 and 3 from weeks123",
 			set: func() *Set {
 				w := weeks123()
