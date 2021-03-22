@@ -170,6 +170,28 @@ func TestAdd(t *testing.T) {
 		want []*span
 	}{
 		{
+			"empty + empty = empty",
+			NewSet([]Interval{}),
+			NewImmutableSet([]Interval{}),
+			[]*span{},
+		},
+		{
+			"empty + [30,111) = [30, 111)",
+			NewSet([]Interval{}),
+			NewImmutableSet([]Interval{&span{30, 111}}),
+			[]*span{
+				{30, 111},
+			},
+		},
+		{
+			"[20, 40) + empty = [20, 40)",
+			NewSet([]Interval{&span{20, 40}}),
+			NewImmutableSet([]Interval{}),
+			[]*span{
+				{20, 40},
+			},
+		},
+		{
 			"[20, 40) + [60,111)",
 			NewSet([]Interval{&span{20, 40}}),
 			NewSet([]Interval{&span{60, 111}}),
@@ -205,6 +227,26 @@ func TestSub(t *testing.T) {
 		b    SetInput
 		want []*span
 	}{
+		{
+			"empty - empty = empty",
+			NewSet([]Interval{}),
+			NewImmutableSet([]Interval{}),
+			[]*span{},
+		},
+		{
+			"empty - [30,111) = empty",
+			NewSet([]Interval{}),
+			NewImmutableSet([]Interval{&span{30, 111}}),
+			[]*span{},
+		},
+		{
+			"[20, 40) - empty = [20, 40)",
+			NewSet([]Interval{&span{20, 40}}),
+			NewImmutableSet([]Interval{}),
+			[]*span{
+				{20, 40},
+			},
+		},
 		{
 			"[20, 40) - [30,111)",
 			NewSet([]Interval{&span{20, 40}}),
@@ -261,6 +303,24 @@ func TestIntersect(t *testing.T) {
 		b    SetInput
 		want []*span
 	}{
+		{
+			"empty intersect empty = empty",
+			NewSet([]Interval{}),
+			NewImmutableSet([]Interval{}),
+			[]*span{},
+		},
+		{
+			"empty intersect [30,111) = empty",
+			NewSet([]Interval{}),
+			NewImmutableSet([]Interval{&span{30, 111}}),
+			[]*span{},
+		},
+		{
+			"[20, 40) intersect empty = empty",
+			NewSet([]Interval{&span{20, 40}}),
+			NewImmutableSet([]Interval{}),
+			[]*span{},
+		},
 		{
 			"[20, 40) intersect [30,111)",
 			NewSet([]Interval{&span{20, 40}}),
@@ -329,6 +389,24 @@ func TestContains(t *testing.T) {
 		elem *span
 		want bool
 	}{
+		{
+			name: "{} contains empty interval",
+			set:  NewSet([]Interval{}),
+			elem: &span{},
+			want: true,
+		},
+		{
+			name: "{} does not contain [30,111)",
+			set:  NewSet([]Interval{}),
+			elem: &span{30, 111},
+			want: false,
+		},
+		{
+			name: "[20, 40) contains empty interval",
+			set:  NewSet([]Interval{&span{20, 40}}),
+			elem: &span{},
+			want: true,
+		},
 		{
 			name: "{[0, 5), [10, 15)} contains [0, 5)]",
 			set:  NewSet([]Interval{&span{0, 5}, &span{10, 15}}),
