@@ -359,7 +359,7 @@ func TestIntIntervalEquality(t *testing.T) {
 			wantEqualSets: true,
 		},
 	} {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			if want, got := tt.wantEqualSets, tt.a.EqualSets(tt.b); got != want {
 				t.Errorf("%s.EqualSets(%s) = %v, want %v", tt.a, tt.b, got, want)
 			}
